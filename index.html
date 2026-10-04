@@ -11,7 +11,17 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><div><div class="brand">Fin<span>Track</span></div><div class="muted small">Pengatur keuangan pribadi</div></div><div id="userbar" class="row hidden" style="flex:0 1 auto"><span id="useremail" class="small muted"></span><button id="logout" class="ghost">Keluar</button></div></div>
+  <div class="top"><div><div class="brand">Fin<span>Track</span></div><div class="muted small">Pengatur keuangan pribadi</div></div><div id="userbar" class="row hidden" style="flex:0 1 auto;align-items:center">
+  <span id="useremail" class="small muted"></span>
+
+  <a href="./analisis.html"
+     class="ghost"
+     style="display:inline-block;text-decoration:none;padding:11px 15px;border-radius:10px;font-weight:650;white-space:nowrap">
+    📊 Analisis
+  </a>
+
+  <button id="logout" class="ghost">Keluar</button>
+</div></div>
   <section id="setup" class="card auth hidden">
     <h1>Hubungkan database</h1><p class="muted">Masukkan URL dan anon/publishable key dari proyek Supabase. Pengaturan disimpan hanya di browser ini.</p>
     <div class="notice">Jangan pernah masukkan <b>service_role</b> key. Gunakan hanya publishable/anon key dan aktifkan RLS seperti panduan README.</div>
@@ -31,7 +41,6 @@
   </section>
   <main id="app" class="hidden">
     <div class="row" style="margin-bottom:16px"><div><h1 style="margin:0">Ringkasan keuangan</h1><div class="muted small">Data tersimpan di database akun lo.</div></div><div style="text-align:right;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
-  <a href="./analisis.html" class="ghost" style="display:inline-block;text-decoration:none;padding:11px 15px;border-radius:10px;font-weight:650">📊 Analisis</a>
   <button id="export" class="ghost">Ekspor CSV</button>
 </div></div>
     <div class="stats">
