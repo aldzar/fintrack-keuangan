@@ -30,7 +30,10 @@
     <button id="editconfig" class="ghost" style="width:100%;margin-top:8px">Pengaturan database</button>
   </section>
   <main id="app" class="hidden">
-    <div class="row" style="margin-bottom:16px"><div><h1 style="margin:0">Ringkasan keuangan</h1><div class="muted small">Data tersimpan di database akun lo.</div></div><div style="text-align:right"><button id="export" class="ghost">Ekspor CSV</button></div></div>
+    <div class="row" style="margin-bottom:16px"><div><h1 style="margin:0">Ringkasan keuangan</h1><div class="muted small">Data tersimpan di database akun lo.</div></div><div style="text-align:right;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+  <a href="./analisis.html" class="ghost" style="display:inline-block;text-decoration:none;padding:11px 15px;border-radius:10px;font-weight:650">📊 Analisis</a>
+  <button id="export" class="ghost">Ekspor CSV</button>
+</div></div>
     <div class="stats">
       <div class="card stat"><div class="label">Saldo bersih</div><div id="balance" class="value">Rp0</div><div class="hint">Total pemasukan - pengeluaran</div></div>
       <div class="card stat"><div class="label">Pemasukan bulan ini</div><div id="income" class="value success">Rp0</div><div class="hint">Bulan berjalan</div></div>
