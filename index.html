@@ -53,14 +53,90 @@
       <section class="card">
         <div class="section-title"><h2 id="formtitle">Tambah transaksi</h2><span class="badge">Pribadi</span></div>
         <form id="txform">
-          <input type="hidden" id="txid">
-          <div class="row"><div class="field"><label>Jenis</label><select id="type"><option value="expense">Pengeluaran</option><option value="income">Pemasukan</option></select></div><div class="field"><label>Tanggal</label><input id="date" type="date" required></div></div>
-          <div class="field"><label>Nama transaksi</label><input id="title" maxlength="100" required placeholder="Contoh: Makan siang"></div>
-          <div class="row"><div class="field"><label>Kategori</label><select id="category"><option>Makan</option><option>Transportasi</option><option>Kos</option><option>Kuliah</option><option>Belanja</option><option>Tagihan</option><option>Gaji / Penghasilan</option><option>Usaha</option><option>Tabungan</option><option>Lainnya</option></select></div><div class="field"><label>Nominal (Rp)</label><input id="amount" type="number" min="1" step="1" required placeholder="25000"></div></div>
-          <div class="field"><label>Catatan (opsional)</label><input id="note" maxlength="250" placeholder="Catatan singkat"></div>
-          <div class="row"><button class="primary" type="submit" id="submitTx">Simpan transaksi</button><button class="ghost hidden" type="button" id="cancelEdit">Batal edit</button></div>
-          <p id="txmsg" class="small muted"></p>
-        </form>
+  <input type="hidden" id="txid">
+
+  <div class="row">
+    <div class="field">
+      <label>Jenis Transaksi</label>
+      <select id="type">
+        <option value="expense">Pengeluaran</option>
+        <option value="income">Pemasukan</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Tanggal Transaksi</label>
+      <input id="date" type="date" required>
+    </div>
+  </div>
+
+  <div class="row" style="justify-content:space-between;align-items:center">
+    <h3>Daftar Transaksi</h3>
+    <button class="ghost" type="button" id="addItem">
+      + Tambah Transaksi
+    </button>
+  </div>
+
+  <div id="itemsContainer">
+    <div class="item-row" style="border:1px solid #ddd;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div class="field">
+        <label>Nama Transaksi</label>
+        <input class="item-title" maxlength="100" required
+          placeholder="Contoh: Makan siang">
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>Kategori</label>
+          <select class="item-category">
+            <option>Makan</option>
+            <option>Transportasi</option>
+            <option>Kos</option>
+            <option>Kuliah</option>
+            <option>Belanja</option>
+            <option>Tagihan</option>
+            <option>Gaji / Penghasilan</option>
+            <option>Usaha</option>
+            <option>Tabungan</option>
+            <option>Lainnya</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Nominal (Rp)</label>
+          <input class="item-amount" type="number" min="1"
+            step="1" required placeholder="15000">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Catatan (opsional)</label>
+        <input class="item-note" maxlength="250"
+          placeholder="Catatan singkat">
+      </div>
+
+      <button class="ghost remove-item" type="button" disabled>
+        Hapus transaksi
+      </button>
+    </div>
+  </div>
+
+  <div style="padding:14px;border-radius:12px;background:var(--card,#f3f4f6);margin-bottom:16px">
+    <strong>Total: <span id="batchTotal">Rp0</span></strong>
+  </div>
+
+  <div class="row">
+    <button class="primary" type="submit" id="submitTx">
+      Simpan Semua Transaksi
+    </button>
+
+    <button class="ghost hidden" type="button" id="cancelEdit">
+      Batal edit
+    </button>
+  </div>
+
+  <p id="txmsg" class="small muted"></p>
+</form>
       </section>
       <section class="card">
         <div class="section-title"><h2>Anggaran bulanan</h2></div>
@@ -120,9 +196,216 @@ async function enterApp(){show('auth',false);show('setup',false);show('app');sho
 async function loadData(){msg('txmsg','Memuat data...');try{const [tr,br]=await Promise.all([supabaseClient.from('transactions').select('*').order('transaction_date',{ascending:false}).order('created_at',{ascending:false}),supabaseClient.from('budgets').select('*').eq('month',monthNow()).maybeSingle()]);if(tr.error)throw tr.error;if(br.error)throw br.error;rows=tr.data||[];budgetValue=br.data?Number(br.data.amount):0;$('budget').value=budgetValue||'';render();msg('txmsg','Data tersinkronisasi dari database.',true)}catch(e){msg('txmsg','Gagal memuat data: '+e.message+'. Periksa SQL/RLS pada README.');}}
 function render(){let current=currentMonthRows(),income=current.filter(r=>r.type==='income').reduce((a,r)=>a+Number(r.amount),0),expense=current.filter(r=>r.type==='expense').reduce((a,r)=>a+Number(r.amount),0),totalIn=rows.filter(r=>r.type==='income').reduce((a,r)=>a+Number(r.amount),0),totalOut=rows.filter(r=>r.type==='expense').reduce((a,r)=>a+Number(r.amount),0);$('balance').textContent=rupiah(totalIn-totalOut);$('income').textContent=rupiah(income);$('expense').textContent=rupiah(expense);$('remaining').textContent=rupiah(budgetValue-expense);let pct=budgetValue?Math.min(100,Math.round(expense/budgetValue*100)):0;$('budgetpct').textContent=pct+'%';$('budgetbar').style.width=pct+'%';$('budgethint').textContent=budgetValue?`${rupiah(expense)} dari ${rupiah(budgetValue)} terpakai.`:'Atur anggaran agar bisa memantau pengeluaran.';let search=$('search').value.toLowerCase(),type=$('filtertype').value,month=$('filtermonth').value;let filtered=rows.filter(r=>(!search||(r.title+' '+r.category+' '+(r.note||'')).toLowerCase().includes(search))&&(!type||r.type===type)&&(!month||String(r.transaction_date).slice(0,7)===month));$('transactions').innerHTML='';filtered.forEach(r=>{let tr=document.createElement('tr');const cells=[new Date(r.transaction_date+'T00:00:00').toLocaleDateString('id-ID'),r.title,r.category,r.type==='income'?'Pemasukan':'Pengeluaran'];cells.forEach(v=>{let td=document.createElement('td');td.textContent=v;tr.appendChild(td)});let amount=document.createElement('td');amount.className='amount '+r.type;amount.textContent=(r.type==='income'?'+':'−')+rupiah(r.amount);tr.appendChild(amount);let actions=document.createElement('td');let edit=document.createElement('button');edit.textContent='Edit';edit.className='ghost';edit.style.marginRight='5px';edit.onclick=()=>editTx(r);let del=document.createElement('button');del.textContent='Hapus';del.className='danger';del.onclick=()=>deleteTx(r);actions.append(edit,del);tr.appendChild(actions);$('transactions').appendChild(tr)});show('empty',filtered.length===0)}
 $('date').value=today();
-$('txform').onsubmit=async e=>{e.preventDefault();let payload={user_id:user.id,type:$('type').value,transaction_date:$('date').value,title:$('title').value.trim(),category:$('category').value,amount:Number($('amount').value),note:$('note').value.trim()};if(!payload.title||payload.amount<=0)return;try{let result=editing?await supabaseClient.from('transactions').update(payload).eq('id',$('txid').value).select().single():await supabaseClient.from('transactions').insert(payload).select().single();if(result.error)throw result.error;resetForm();await loadData()}catch(e){msg('txmsg','Gagal menyimpan: '+e.message)}};
-function editTx(r){editing=true;$('txid').value=r.id;$('type').value=r.type;$('date').value=r.transaction_date;$('title').value=r.title;$('category').value=r.category;$('amount').value=r.amount;$('note').value=r.note||'';$('formtitle').textContent='Edit transaksi';$('submitTx').textContent='Simpan perubahan';show('cancelEdit');window.scrollTo({top:0,behavior:'smooth'})}
-function resetForm(){editing=false;$('txform').reset();$('txid').value='';$('date').value=today();$('formtitle').textContent='Tambah transaksi';$('submitTx').textContent='Simpan transaksi';show('cancelEdit',false);msg('txmsg','Transaksi tersimpan.',true)}
+// Menghitung total seluruh transaksi
+function refreshBatchTotal() {
+  let total = 0;
+
+  document.querySelectorAll('.item-amount').forEach(input => {
+    total += Number(input.value) || 0;
+  });
+
+  $('batchTotal').textContent = 'Rp' + total.toLocaleString('id-ID');
+}
+
+// Menambahkan baris transaksi baru
+function addBatchItem() {
+  const container = $('itemsContainer');
+  const firstRow = container.querySelector('.item-row');
+  const newRow = firstRow.cloneNode(true);
+
+  newRow.querySelector('.item-title').value = '';
+  newRow.querySelector('.item-category').selectedIndex = 0;
+  newRow.querySelector('.item-amount').value = '';
+  newRow.querySelector('.item-note').value = '';
+
+  newRow.querySelector('.remove-item').disabled = false;
+
+  container.appendChild(newRow);
+  refreshBatchTotal();
+}
+
+// Memperbarui tombol hapus pada setiap baris
+function updateRemoveButtons() {
+  const rows = document.querySelectorAll('.item-row');
+
+  rows.forEach(row => {
+    row.querySelector('.remove-item').disabled = rows.length === 1;
+  });
+}
+
+// Tombol tambah transaksi
+$('addItem').onclick = () => {
+  if (editing) return;
+
+  addBatchItem();
+  updateRemoveButtons();
+};
+
+// Menghapus baris transaksi
+$('itemsContainer').addEventListener('click', e => {
+  if (e.target.classList.contains('remove-item')) {
+    const rows = document.querySelectorAll('.item-row');
+
+    if (rows.length > 1) {
+      e.target.closest('.item-row').remove();
+      updateRemoveButtons();
+      refreshBatchTotal();
+    }
+  }
+});
+
+// Menghitung ulang total saat nominal berubah
+$('itemsContainer').addEventListener('input', e => {
+  if (e.target.classList.contains('item-amount')) {
+    refreshBatchTotal();
+  }
+});
+
+// Menyimpan transaksi
+$('txform').onsubmit = async e => {
+  e.preventDefault();
+
+  const date = $('date').value;
+  const type = $('type').value;
+
+  if (!date) {
+    msg('txmsg', 'Pilih tanggal transaksi terlebih dahulu.');
+    return;
+  }
+
+  const rows = [...document.querySelectorAll('.item-row')];
+
+  const payloads = rows.map(row => ({
+    user_id: user.id,
+    type,
+    transaction_date: date,
+    title: row.querySelector('.item-title').value.trim(),
+    category: row.querySelector('.item-category').value,
+    amount: Number(row.querySelector('.item-amount').value),
+    note: row.querySelector('.item-note').value.trim()
+  }));
+
+  const invalid = payloads.some(item =>
+    !item.title || !Number.isFinite(item.amount) || item.amount <= 0
+  );
+
+  if (invalid) {
+    msg('txmsg', 'Lengkapi nama dan nominal semua transaksi dengan benar.');
+    return;
+  }
+
+  const button = $('submitTx');
+  button.disabled = true;
+
+  try {
+    let result;
+
+    if (editing) {
+      // Saat edit, perbarui transaksi yang dipilih saja
+      result = await supabaseClient
+        .from('transactions')
+        .update(payloads[0])
+        .eq('id', $('txid').value)
+        .select()
+        .single();
+    } else {
+      // Simpan semua transaksi sekaligus
+      result = await supabaseClient
+        .from('transactions')
+        .insert(payloads)
+        .select();
+    }
+
+    if (result.error) throw result.error;
+
+    msg(
+      'txmsg',
+      editing
+        ? 'Transaksi berhasil diperbarui!'
+        : payloads.length + ' transaksi berhasil disimpan!',
+      true
+    );
+
+    resetForm();
+    await loadData();
+
+  } catch (error) {
+    msg('txmsg', 'Gagal menyimpan: ' + error.message);
+  } finally {
+    button.disabled = false;
+  }
+};
+
+// Inisialisasi total saat halaman digunakan
+refreshBatchTotal();
+updateRemoveButtons();
+function editTx(r) {
+  editing = true;
+
+  $('txid').value = r.id;
+  $('type').value = r.type;
+  $('date').value = r.transaction_date;
+
+  const container = $('itemsContainer');
+  const rows = container.querySelectorAll('.item-row');
+
+  // Sisakan satu baris untuk transaksi yang diedit
+  rows.forEach((row, index) => {
+    if (index > 0) row.remove();
+  });
+
+  const row = container.querySelector('.item-row');
+
+  row.querySelector('.item-title').value = r.title;
+  row.querySelector('.item-category').value = r.category;
+  row.querySelector('.item-amount').value = r.amount;
+  row.querySelector('.item-note').value = r.note || '';
+
+  // Nonaktifkan tambah transaksi saat mengedit
+  $('addItem').disabled = true;
+
+  updateRemoveButtons();
+  refreshBatchTotal();
+
+  $('submitTx').textContent = 'Simpan perubahan';
+  show('cancelEdit');
+
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  });
+}
+function resetForm() {
+  editing = false;
+
+  $('txform').reset();
+  $('txid').value = '';
+  $('date').value = today();
+
+  const container = $('itemsContainer');
+  const rows = container.querySelectorAll('.item-row');
+
+  // Kembalikan form menjadi satu baris
+  rows.forEach((row, index) => {
+    if (index > 0) row.remove();
+  });
+
+  const firstRow = container.querySelector('.item-row');
+
+  firstRow.querySelector('.item-title').value = '';
+  firstRow.querySelector('.item-category').selectedIndex = 0;
+  firstRow.querySelector('.item-amount').value = '';
+  firstRow.querySelector('.item-note').value = '';
+
+  $('addItem').disabled = false;
+  $('submitTx').textContent = 'Simpan Semua Transaksi';
+
+  updateRemoveButtons();
+  refreshBatchTotal();
+
+  show('cancelEdit', false);
+  msg('txmsg', 'Form siap digunakan.', true);
+}
 $('cancelEdit').onclick=resetForm;
 async function deleteTx(r){if(!confirm(`Hapus transaksi "${r.title}" senilai ${rupiah(r.amount)}?`))return;try{const {error}=await supabaseClient.from('transactions').delete().eq('id',r.id);if(error)throw error;await loadData()}catch(e){alert('Gagal menghapus: '+e.message)}}
 $('savebudget').onclick=async()=>{let amount=Number($('budget').value);if(amount<0||!Number.isFinite(amount)){msg('budgetmsg','Nominal anggaran tidak valid.');return}try{const {error}=await supabaseClient.from('budgets').upsert({user_id:user.id,month:monthNow(),amount},{onConflict:'user_id,month'});if(error)throw error;budgetValue=amount;render();msg('budgetmsg','Anggaran tersimpan online.',true)}catch(e){msg('budgetmsg','Gagal menyimpan: '+e.message)}};
