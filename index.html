@@ -74,7 +74,25 @@ const today=()=>new Date().toLocaleDateString('en-CA');
 const monthNow=()=>today().slice(0,7);
 const rupiah=n=>new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(Number(n)||0);
 function show(id,on=true){$(id).classList.toggle('hidden',!on)}
-function config(){try{return JSON.parse(localStorage.getItem(configKey)||'{}')}catch{return {}}}
+const DEFAULT_CONFIG = {
+  url: 'https://dqmvlhpmvehsfbahekkr.supabase.co',
+  key: 'sb_publishable_47n1CH8RO-xbtcu9v3_eZw_w47wq_Ih'
+};
+
+function config() {
+  try {
+    const saved = JSON.parse(
+      localStorage.getItem(configKey) || '{}'
+    );
+
+    return {
+      url: saved.url || DEFAULT_CONFIG.url,
+      key: saved.key || DEFAULT_CONFIG.key
+    };
+  } catch {
+    return DEFAULT_CONFIG;
+  }
+}
 function msg(id,t,ok=false){$(id).textContent=t;$(id).className='small '+(ok?'success':'muted')}
 function initConfig(){const c=config();$('sburl').value=c.url||'';$('sbkey').value=c.key||'';show('setup');show('auth',false);show('app',false);show('userbar',false)}
 function connect(){const c=config();if(!c.url||!c.key||!window.supabase){initConfig();msg('setupmsg','Isi konfigurasi Supabase terlebih dahulu.');return false}try{supabaseClient=window.supabase.createClient(c.url,c.key);return true}catch(e){initConfig();msg('setupmsg','URL atau key tidak valid. Periksa kembali.');return false}}
