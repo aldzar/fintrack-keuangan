@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analisis Keuangan | FinTrack</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f7fb;
+      color: #1e293b;
+    }
+
+    header {
+      background: white;
+      padding: 20px 7%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    header h2 {
+      margin: 0;
+      color: #2563eb;
+    }
+
+    a {
+      color: #2563eb;
+      text-decoration: none;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin: 25px 0;
+    }
+
+    .card {
+      background: white;
+      padding: 22px;
+      border-radius: 15px;
+      box-shadow: 0 4px 15px #00000008;
+      margin-bottom: 18px;
+      min-width: 0;
+    }
+
+    .label {
+      color: #64748b;
+      font-size: 14px;
+    }
+
+    .amount {
+      font-size: 25px;
+      font-weight: bold;
+      margin-top: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .charts {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 18px;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 300px;
+    }
+
+    .insight {
+      padding: 15px;
+      background: #eff6ff;
+      border-radius: 10px;
+      margin: 10px 0;
+      line-height: 1.6;
+    }
+
+    button {
+      border: none;
+      background: #2563eb;
+      color: white;
+      padding: 11px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    select {
+      padding: 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: white;
+    }
+
+    #status {
+      color: #64748b;
+      margin-top: 15px;
+    }
+
+    @media (max-width: 700px) {
+      .cards,
+      .charts {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        padding: 18px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <h2>FinTrack</h2>
+  <a href="./index.html">← Kembali</a>
+</header>
+
+<main>
+  <h1>Analisis Keuangan 📊</h1>
+  <p>Kenali pola pemasukan dan pengeluaranmu.</p>
+
+  <label for="periode">Periode analisis: </label>
+  <select id="periode">
+    <option value="3">3 bulan terakhir</option>
+    <option value="6" selected>6 bulan terakhir</option>
+    <option value="12">12 bulan terakhir</option>
+  </select>
+
+  <div id="status">Menunggu konfigurasi Supabase...</div>
+
+  <section class="cards">
+    <div class="card">
+      <div class="label">Total Pemasukan</div>
+      <div class="amount" id="pemasukan">Rp0</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Total Pengeluaran</div>
+      <div class="amount" id="pengeluaran">Rp0</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Selisih Keuangan</div>
+      <div class="amount" id="saldo">Rp0</div>
+    </div>
+  </section>
+
+  <section class="charts">
+    <div class="card">
+      <h3>Pemasukan vs Pengeluaran</h3>
+      <div class="chart-container">
+        <canvas id="grafikBulanan"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Pengeluaran per Kategori</h3>
+      <div class="chart-container">
+        <canvas id="grafikKategori"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h3>💡 Insight Keuangan</h3>
+    <div id="insight">
+      Insight akan muncul setelah database terhubung.
+    </div>
+  </section>
+
+  <section class="card">
+    <h3>🔮 Estimasi Pengeluaran Bulan Depan</h3>
+    <div class="amount" id="prediksi">Belum tersedia</div>
+    <p class="label">
+      Estimasi sederhana berdasarkan rata-rata pengeluaran bulanan,
+      bukan prediksi Machine Learning.
+    </p>
+  </section>
+</main>
+
+<script>
+  /*
+    PENTING:
+    Isi konfigurasi menggunakan URL dan publishable key
+    yang sama dengan aplikasi utama FinTrack.
+    Jangan pernah memasukkan service_role key ke browser.
+  */
+
+  const SUPABASE_URL = "https://dqmvlhpmvehsfbahekkr.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_47n1CH8RO-xbtcu9v3_eZw_w47wq_Ih";
+
+  const rupiah = angka =>
+    new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      maximumFractionDigits: 0
+    }).format(angka || 0);
+
+  let transaksi = [];
+  let grafikBulanan;
+  let grafikKategori;
+
+  function kunciBulan(tanggal) {
+    return tanggal.slice(0, 7);
+  }
+
+  function labelBulan(kunci) {
+    const [tahun, bulan] = kunci.split("-").map(Number);
+
+    return new Date(tahun, bulan - 1, 1)
+      .toLocaleDateString("id-ID", {
+        month: "short",
+        year: "2-digit"
+      });
+  }
+
+  function daftarBulan(jumlah) {
+    const hasil = [];
+    const sekarang = new Date();
+
+    for (let i = jumlah - 1; i >= 0; i--) {
+      const tanggal = new Date(
+        sekarang.getFullYear(),
+        sekarang.getMonth() - i,
+        1
+      );
+
+      hasil.push(
+        tanggal.getFullYear() + "-" +
+        String(tanggal.getMonth() + 1).padStart(2, "0")
+      );
+    }
+
+    return hasil;
+  }
+
+  async function mulai() {
+    const status = document.getElementById("status");
+
+    if (
+      SUPABASE_URL === "ISI_URL_SUPABASE" ||
+      SUPABASE_KEY === "ISI_PUBLISHABLE_KEY"
+    ) {
+      status.textContent =
+        "Konfigurasi Supabase belum diisi. Hubungkan menggunakan konfigurasi aplikasi utama.";
+      return;
+    }
+
+    const db = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_KEY
+    );
+
+    const { data: sesi, error: errorSesi } =
+      await db.auth.getSession();
+
+    if (errorSesi || !sesi.session) {
+      status.textContent =
+        "Silakan login melalui halaman utama FinTrack terlebih dahulu.";
+      return;
+    }
+
+    async function muatTransaksi() {
+      status.textContent = "Memuat transaksi...";
+
+      const { data, error } = await db
+        .from("transactions")
+        .select("type, transaction_date, title, category, amount")
+        .eq("user_id", sesi.session.user.id)
+        .order("transaction_date", { ascending: true });
+
+      if (error) {
+        status.textContent =
+          "Gagal memuat transaksi: " + error.message;
+        return;
+      }
+
+      transaksi = data || [];
+
+      tampilkanAnalisis();
+
+      status.textContent =
+        transaksi.length + " transaksi berhasil dimuat.";
+    }
+
+    document.getElementById("periode")
+      .addEventListener("change", tampilkanAnalisis);
+
+    await muatTransaksi();
+  }
+
+  function tampilkanAnalisis() {
+    const jumlah = Number(
+      document.getElementById("periode").value
+    );
+
+    const bulan = daftarBulan(jumlah);
+    const awal = bulan[0];
+    const akhir = bulan[bulan.length - 1];
+
+    const data = transaksi.filter(t => {
+      if (!t.transaction_date) return false;
+
+      const tanggal = kunciBulan(t.transaction_date);
+
+      return tanggal >= awal && tanggal <= akhir;
+    });
+
+    const pemasukan = data
+      .filter(t => t.type === "income")
+      .reduce((total, t) => total + Number(t.amount || 0), 0);
+
+    const pengeluaran = data
+      .filter(t => t.type === "expense")
+      .reduce((total, t) => total + Number(t.amount || 0), 0);
+
+    const saldo = pemasukan - pengeluaran;
+
+    document.getElementById("pemasukan").textContent =
+      rupiah(pemasukan);
+
+    document.getElementById("pengeluaran").textContent =
+      rupiah(pengeluaran);
+
+    document.getElementById("saldo").textContent =
+      rupiah(saldo);
+
+    const totalMasuk = bulan.map(b =>
+      data
+        .filter(t =>
+          t.type === "income" &&
+          kunciBulan(t.transaction_date) === b
+        )
+        .reduce((total, t) => total + Number(t.amount || 0), 0)
+    );
+
+    const totalKeluar = bulan.map(b =>
+      data
+        .filter(t =>
+          t.type === "expense" &&
+          kunciBulan(t.transaction_date) === b
+        )
+        .reduce((total, t) => total + Number(t.amount || 0), 0)
+    );
+
+    if (grafikBulanan) grafikBulanan.destroy();
+
+    grafikBulanan = new Chart(
+      document.getElementById("grafikBulanan"),
+      {
+        type: "bar",
+        data: {
+          labels: bulan.map(labelBulan),
+          datasets: [
+            { label: "Pemasukan", data: totalMasuk },
+            { label: "Pengeluaran", data: totalKeluar }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false
+        }
+      }
+    );
+
+    const kategori = {};
+
+    data
+      .filter(t => t.type === "expense")
+      .forEach(t => {
+        const nama = t.category || "Lainnya";
+
+        kategori[nama] =
+          (kategori[nama] || 0) + Number(t.amount || 0);
+      });
+
+    const daftarKategori = Object.entries(kategori)
+      .sort((a, b) => b[1] - a[1]);
+
+    if (grafikKategori) grafikKategori.destroy();
+
+    grafikKategori = new Chart(
+      document.getElementById("grafikKategori"),
+      {
+        type: "doughnut",
+        data: {
+          labels: daftarKategori.map(k => k[0]),
+          datasets: [{
+            data: daftarKategori.map(k => k[1])
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false
+        }
+      }
+    );
+
+    const insight = [];
+
+    if (pemasukan > 0) {
+      const persentase =
+        Math.round(pengeluaran / pemasukan * 100);
+
+      insight.push(
+        "Pengeluaran menggunakan " + persentase +
+        "% dari total pemasukan pada periode ini."
+      );
+    } else {
+      insight.push(
+        "Belum ada pemasukan tercatat untuk dibandingkan."
+      );
+    }
+
+    if (daftarKategori.length > 0) {
+      insight.push(
+        "Kategori pengeluaran terbesar adalah " +
+        daftarKategori[0][0] + " sebesar " +
+        rupiah(daftarKategori[0][1]) + "."
+      );
+    }
+
+    if (saldo < 0) {
+      insight.push(
+        "Pengeluaran lebih besar daripada pemasukan. " +
+        "Periksa kembali kategori yang bisa dikurangi."
+      );
+    } else if (pemasukan > 0) {
+      insight.push(
+        "Selisih keuangan positif. Pertimbangkan menyisihkan " +
+        sebagianTabungan(saldo) + " untuk tabungan atau dana darurat."
+      );
+    }
+
+    if (data.length === 0) {
+      insight.push(
+        "Belum ada transaksi pada periode yang dipilih."
+      );
+    }
+
+    document.getElementById("insight").innerHTML =
+      insight.map(teks =>
+        '<div class="insight">' + teks + "</div>"
+      ).join("");
+
+    const rataRata =
+      totalKeluar.reduce((a, b) => a + b, 0) /
+      (totalKeluar.length || 1);
+
+    document.getElementById("prediksi").textContent =
+      rupiah(rataRata);
+  }
+
+  function sebagianTabungan(saldo) {
+    return rupiah(Math.max(0, saldo) * 0.2);
+  }
+
+  mulai().catch(error => {
+    document.getElementById("status").textContent =
+      "Terjadi kesalahan: " + error.message;
+  });
+</script>
+
+</body>
+</html>
